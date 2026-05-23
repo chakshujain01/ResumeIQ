@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ResumeIQ — AI Resume Analyzer</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #111118;
+    --surface2: #1a1a24;
+    --border: rgba(255,255,255,0.08);
+    --accent: #7c6af7;
+    --accent2: #4ecdc4;
+    --text: #f0eeff;
+    --muted: #888899;
+    --success: #4ecdc4;
+    --warn: #ffa94d;
+    --danger: #ff6b6b;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Outfit', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(124,106,247,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(124,106,247,0.04) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  body::after {
+    content: '';
+    position: fixed;
+    top: -200px; right: -200px;
+    width: 600px; height: 600px;
+    background: radial-gradient(circle, rgba(124,106,247,0.12) 0%, transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ── Access gate overlay ─────────────────────────────────────── */
+  #gate {
+    position: fixed;
+    inset: 0;
+    background: var(--bg);
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 16px;
+    text-align: center;
+    padding: 24px;
+  }
+
+  #gate .gate-icon {
+    font-size: 40px;
+    margin-bottom: 8px;
+  }
+
+  #gate h2 {
+    font-family: 'DM Serif Display', serif;
+    font-size: 28px;
+    letter-spacing: -1px;
+  }
+
+  #gate p {
+    color: var(--muted);
+    font-size: 15px;
+    max-width: 360px;
+    line-height: 1.6;
+  }
+
+  #gate .denied-msg {
+    background: rgba(255,107,107,0.08);
+    border: 1px solid rgba(255,107,107,0.25);
+    border-radius: 10px;
+    padding: 14px 20px;
+    color: var(--danger);
+    font-size: 14px;
+    max-width: 380px;
+  }
+  /* ─────────────────────────────────────────────────────────────── */
+
+  .wrapper {
+    position: relative;
+    z-index: 1;
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 48px 24px;
+  }
+
+  header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 48px;
+  }
+
+  .logo-mark {
+    width: 36px; height: 36px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'DM Mono', monospace;
+    font-size: 14px; font-weight: 500;
+    color: white; letter-spacing: -1px;
+  }
+
+  .logo-text {
+    font-family: 'DM Serif Display', serif;
+    font-size: 22px;
+    letter-spacing: -0.5px;
+    background: linear-gradient(90deg, var(--text), var(--accent));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .badge {
+    margin-left: auto;
+    font-size: 11px;
+    font-family: 'DM Mono', monospace;
+    padding: 4px 10px;
+    border: 1px solid var(--accent);
+    border-radius: 20px;
+    color: var(--accent);
+    letter-spacing: 0.05em;
+  }
+
+  .hero { text-align: center; margin-bottom: 48px; }
+
+  h1 {
+    font-family: 'DM Serif Display', serif;
+    font-size: clamp(36px, 6vw, 64px);
+    line-height: 1.1;
+    letter-spacing: -2px;
+    margin-bottom: 16px;
+  }
+
+  h1 em {
+    font-style: italic;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .hero p { color: var(--muted); font-size: 17px; font-weight: 300; max-width: 500px; margin: 0 auto; line-height: 1.6; }
+
+  .input-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+  @media (max-width: 700px) { .input-grid { grid-template-columns: 1fr; } }
+
+  .field {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 20px;
+    transition: border-color 0.2s;
+  }
+
+  .field:focus-within {
+    border-color: rgba(124,106,247,0.4);
+    box-shadow: 0 0 0 3px rgba(124,106,247,0.06);
+  }
+
+  .field-label {
+    font-size: 11px;
+    font-family: 'DM Mono', monospace;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .field-label .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+
+  textarea {
+    width: 100%;
+    background: transparent;
+    border: none; outline: none;
+    color: var(--text);
+    font-family: 'Outfit', sans-serif;
+    font-size: 14px;
+    line-height: 1.6;
+    resize: none;
+    height: 200px;
+    font-weight: 300;
+  }
+
+  textarea::placeholder { color: rgba(255,255,255,0.2); }
+
+  .analyze-btn {
+    width: 100%;
+    padding: 18px;
+    background: linear-gradient(135deg, var(--accent), #5b4fd4);
+    border: none;
+    border-radius: 14px;
+    color: white;
+    font-family: 'Outfit', sans-serif;
+    font-size: 16px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    margin-bottom: 32px;
+  }
+
+  .analyze-btn:hover { transform: translateY(-1px); box-shadow: 0 8px 30px rgba(124,106,247,0.35); }
+  .analyze-btn:active { transform: translateY(0); }
+  .analyze-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+  .spinner {
+    width: 18px; height: 18px;
+    border: 2px solid rgba(255,255,255,0.3);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    display: none;
+  }
+  .analyze-btn.loading .spinner { display: block; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  #results { display: none; animation: fadeUp 0.5s ease; }
+  @keyframes fadeUp { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0); } }
+
+  .score-banner {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 28px 32px;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 32px;
+  }
+
+  .score-ring { position: relative; width: 100px; height: 100px; flex-shrink: 0; }
+  .score-ring svg { transform: rotate(-90deg); }
+
+  .score-num {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    font-family: 'DM Serif Display', serif;
+    font-size: 28px; line-height: 1;
+  }
+
+  .score-num span { font-family: 'Outfit', sans-serif; font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .score-meta h2 { font-family: 'DM Serif Display', serif; font-size: 22px; margin-bottom: 6px; }
+  .score-meta p { color: var(--muted); font-size: 14px; line-height: 1.5; }
+
+  .results-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+  @media (max-width: 700px) { .results-grid { grid-template-columns: 1fr; } }
+
+  .result-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 20px; }
+
+  .card-heading {
+    font-size: 11px;
+    font-family: 'DM Mono', monospace;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .tag-list { display: flex; flex-wrap: wrap; gap: 8px; }
+  .tag { font-size: 12px; padding: 5px 12px; border-radius: 20px; font-weight: 500; }
+  .tag-match { background: rgba(78,205,196,0.12); color: var(--success); border: 1px solid rgba(78,205,196,0.25); }
+  .tag-miss  { background: rgba(255,107,107,0.12); color: var(--danger); border: 1px solid rgba(255,107,107,0.25); }
+
+  .suggestion-list { list-style: none; }
+  .suggestion-list li { display: flex; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 14px; line-height: 1.5; color: rgba(240,238,255,0.85); }
+  .suggestion-list li:last-child { border-bottom: none; }
+  .sug-icon { flex-shrink: 0; margin-top: 2px; }
+
+  .full-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 20px; margin-bottom: 16px; }
+
+  .rewrite-block {
+    background: var(--surface2);
+    border-left: 3px solid var(--accent);
+    border-radius: 0 8px 8px 0;
+    padding: 14px 16px;
+    font-size: 14px; line-height: 1.7;
+    color: rgba(240,238,255,0.9);
+    margin-bottom: 10px;
+    font-weight: 300;
+  }
+
+  .error-box {
+    background: rgba(255,107,107,0.08);
+    border: 1px solid rgba(255,107,107,0.2);
+    border-radius: 12px;
+    padding: 16px 20px;
+    color: var(--danger);
+    font-size: 14px;
+    display: none;
+    margin-bottom: 16px;
+  }
+
+  .strength-row { margin-bottom: 10px; }
+  .strength-label { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 5px; color: rgba(240,238,255,0.8); }
+  .strength-track { height: 6px; background: var(--surface2); border-radius: 3px; overflow: hidden; }
+  .strength-fill { height: 100%; border-radius: 3px; transition: width 1s ease; background: linear-gradient(90deg, var(--accent), var(--accent2)); }
+</style>
+</head>
+<body>
+
+<!-- ── Access Gate (shown if token is wrong/missing) ───────────────── -->
+<div id="gate" style="display:none">
+  <div class="gate-icon">🔒</div>
+  <h2>Access Restricted</h2>
+  <p>This tool is private and only accessible via the link shared in my resume.</p>
+  <div class="denied-msg">
+    If you received this link and are seeing this message,<br>
+    please reach out directly — the link may have changed.
+  </div>
+</div>
+
+<div class="wrapper" id="app" style="display:none">
+
+  <header>
+    <div class="logo-mark">IQ</div>
+    <div class="logo-text">ResumeIQ</div>
+    <div class="badge">AI-POWERED</div>
+  </header>
+
+  <div class="hero">
+    <h1>Know exactly why you're<br>getting <em>rejected</em></h1>
+    <p>Paste a job description and your resume. Get a match score, missing keywords, and rewritten bullet points — in seconds.</p>
+  </div>
+
+  <div class="input-grid">
+    <div class="field">
+      <div class="field-label"><div class="dot" style="background:var(--accent2)"></div>Job Description</div>
+      <textarea id="jd" placeholder="Paste the full job description here…
+
+e.g. We're looking for a Senior Frontend Engineer with 5+ years of React, TypeScript, and REST API experience..."></textarea>
+    </div>
+    <div class="field">
+      <div class="field-label"><div class="dot"></div>Your Resume</div>
+      <textarea id="resume" placeholder="Paste your resume text here…
+
+e.g. John Doe | john@email.com
+Experience:
+• Built React dashboards for 50k+ users
+• Optimized API response times by 40%..."></textarea>
+    </div>
+  </div>
+
+  <div class="error-box" id="errorBox"></div>
+
+  <button class="analyze-btn" id="analyzeBtn" onclick="analyze()">
+    <div class="spinner"></div>
+    <span class="btn-text">✦ Analyze My Resume</span>
+  </button>
+
+  <div id="results">
+    <div class="score-banner">
+      <div class="score-ring">
+        <svg width="100" height="100" viewBox="0 0 100 100">
+          <circle cx="50" cy="50" r="42" fill="none" stroke="rgba(255,255,255,0.07)" stroke-width="8"/>
+          <circle cx="50" cy="50" r="42" fill="none" stroke="url(#scoreGrad)" stroke-width="8"
+                  stroke-linecap="round" stroke-dasharray="264"
+                  id="scoreArc" stroke-dashoffset="264"/>
+          <defs>
+            <linearGradient id="scoreGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stop-color="#7c6af7"/>
+              <stop offset="100%" stop-color="#4ecdc4"/>
+            </linearGradient>
+          </defs>
+        </svg>
+        <div class="score-num" id="scoreNum">—<span>Match</span></div>
+      </div>
+      <div class="score-meta">
+        <h2 id="scoreLabel"></h2>
+        <p id="scoreDesc"></p>
+      </div>
+    </div>
+
+    <div class="results-grid">
+      <div class="result-card">
+        <div class="card-heading">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--success)" stroke-width="2.5"><polyline points="20,6 9,17 4,12"/></svg>
+          Matched Keywords
+        </div>
+        <div class="tag-list" id="matchedTags"></div>
+      </div>
+      <div class="result-card">
+        <div class="card-heading">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          Missing Keywords
+        </div>
+        <div class="tag-list" id="missingTags"></div>
+      </div>
+    </div>
+
+    <div class="results-grid">
+      <div class="result-card">
+        <div class="card-heading">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.5"><polyline points="23,6 13.5,15.5 8.5,10.5 1,18"/><polyline points="17,6 23,6 23,12"/></svg>
+          Skill Strengths
+        </div>
+        <div id="strengthBars"></div>
+      </div>
+      <div class="result-card">
+        <div class="card-heading">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--warn)" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          Action Items
+        </div>
+        <ul class="suggestion-list" id="actionList"></ul>
+      </div>
+    </div>
+
+    <div class="full-card">
+      <div class="card-heading" style="margin-bottom:16px">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.5"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+        AI-Rewritten Bullet Points
+      </div>
+      <div id="rewrites"></div>
+    </div>
+
+    <div class="full-card">
+      <div class="card-heading" style="margin-bottom:14px">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent2)" stroke-width="2.5"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+        Recruiter's First Impression
+      </div>
+      <div id="impression" style="font-size:14px;line-height:1.7;color:rgba(240,238,255,0.85);font-weight:300;"></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  // ── Token gate ─────────────────────────────────────────────────────────────
+  // Read ?token=... from the URL. Store it so it gets sent with every API call.
+  const urlToken = new URLSearchParams(window.location.search).get('token');
+
+  if (!urlToken) {
+    // No token at all — show the locked gate
+    document.getElementById('gate').style.display = 'flex';
+  } else {
+    // Token present — show the app (the server will validate it on each request)
+    document.getElementById('app').style.display = 'block';
+  }
+  // ───────────────────────────────────────────────────────────────────────────
+
+  async function analyze() {
+    const jd     = document.getElementById('jd').value.trim();
+    const resume = document.getElementById('resume').value.trim();
+    const btn    = document.getElementById('analyzeBtn');
+    const err    = document.getElementById('errorBox');
+
+    err.style.display = 'none';
+
+    if (!jd || !resume) {
+      err.textContent = 'Please paste both the job description and your resume before analyzing.';
+      err.style.display = 'block';
+      return;
+    }
+
+    btn.disabled = true;
+    btn.classList.add('loading');
+    btn.querySelector('.btn-text').textContent = 'Analyzing…';
+    document.getElementById('results').style.display = 'none';
+
+    try {
+      // Token is included in both the query string AND the body — the server checks either
+      const resp = await fetch(`/.netlify/functions/analyze?token=${encodeURIComponent(urlToken)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jd, resume, token: urlToken })
+      });
+
+      if (!resp.ok) {
+        const errData = await resp.json().catch(() => ({ error: `HTTP ${resp.status}` }));
+        throw new Error(errData.error || `HTTP ${resp.status}`);
+      }
+
+      const r = await resp.json();
+      renderResults(r);
+
+    } catch (e) {
+      err.textContent = 'Analysis failed: ' + e.message;
+      err.style.display = 'block';
+    }
+
+    btn.disabled = false;
+    btn.classList.remove('loading');
+    btn.querySelector('.btn-text').textContent = '✦ Analyze My Resume';
+  }
+
+  function renderResults(r) {
+    // Score ring animation
+    const arc = document.getElementById('scoreArc');
+    setTimeout(() => {
+      arc.style.strokeDashoffset = 264 - (r.score / 100) * 264;
+    }, 100);
+
+    document.getElementById('scoreNum').innerHTML = r.score + '<span>Match</span>';
+    document.getElementById('scoreNum').style.color =
+      r.score >= 70 ? 'var(--success)' : r.score >= 45 ? 'var(--warn)' : 'var(--danger)';
+    document.getElementById('scoreLabel').textContent = r.scoreLabel;
+    document.getElementById('scoreDesc').textContent  = r.scoreDesc;
+
+    // Keywords
+    document.getElementById('matchedTags').innerHTML =
+      (r.matched || []).map(k => `<span class="tag tag-match">${k}</span>`).join('');
+    document.getElementById('missingTags').innerHTML =
+      (r.missing || []).map(k => `<span class="tag tag-miss">${k}</span>`).join('');
+
+    // Strength bars
+    document.getElementById('strengthBars').innerHTML =
+      (r.strengths || []).map(s => `
+        <div class="strength-row">
+          <div class="strength-label"><span>${s.label}</span><span>${s.pct}%</span></div>
+          <div class="strength-track"><div class="strength-fill" style="width:0%" data-w="${s.pct}%"></div></div>
+        </div>`).join('');
+    setTimeout(() => {
+      document.querySelectorAll('.strength-fill').forEach(el => { el.style.width = el.dataset.w; });
+    }, 200);
+
+    // Action items
+    const icons = ['💡','🔧','📌','✍️','🎯'];
+    document.getElementById('actionList').innerHTML =
+      (r.actions || []).map((a, i) => `<li><span class="sug-icon">${icons[i % icons.length]}</span><span>${a}</span></li>`).join('');
+
+    // Rewrites
+    document.getElementById('rewrites').innerHTML =
+      (r.rewrites || []).map(rw => `<div class="rewrite-block">${rw}</div>`).join('');
+
+    // Recruiter impression
+    document.getElementById('impression').textContent = r.impression;
+
+    // Show results
+    document.getElementById('results').style.display = 'block';
+    document.getElementById('results').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+</script>
+</body>
+</html>

@@ -1,0 +1,10 @@
+[build]
+  publish = "."
+  functions = "netlify/functions"
+
+# Redirect /.netlify/functions/* calls — Netlify handles this automatically,
+# but this makes it explicit and ensures it works from any path.
+[[redirects]]
+  from = "/api/*"
+  to   = "/.netlify/functions/:splat"
+  status = 200
