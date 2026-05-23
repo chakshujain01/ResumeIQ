@@ -71,7 +71,7 @@ exports.handler = async function (event) {
         'anthropic-version': '2023-06-01'
       },
       body: JSON.stringify({
-        model: 'claude-3-5-sonnet-20241022',
+        model: 'claude-3-5-haiku-20241022',
         max_tokens: 1800,
         system: `You are an expert ATS resume analyzer and senior career coach.
 Analyze the resume against the job description and return ONLY valid JSON — no markdown, no backticks, no preamble.
